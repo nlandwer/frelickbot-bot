@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { http } from "./http";
 import { Session } from "./Session";
+import { RequestToken } from "./RequestToken";
 
 export class RealClient {
   private session: Session | null = null;
@@ -34,7 +35,7 @@ export class RealClient {
       headers: {
         "real-auth-info": this.session.authInfo,
         "real-device-uuid": this.session.deviceUuid,
-        "real-request-token": this.session.requestToken,
+       "real-request-token": RequestToken.generate(),
       },
     });
 
