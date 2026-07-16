@@ -19,7 +19,6 @@ export class RealClient {
     this.session = JSON.parse(file);
 
     console.log("✓ Session loaded");
-    console.log(this.session);
   }
 
   getSession(): Session | null {
