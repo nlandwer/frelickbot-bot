@@ -1,3 +1,7 @@
+import "dotenv/config";
+
+import { RealClient } from "./core/RealClient";
+
 async function main() {
   const client = new RealClient();
 
@@ -9,7 +13,7 @@ async function main() {
 
   const result = await client.postToGroup("FrelickBot test post");
 
-  console.log("Post result:");
+  console.log("Post successful:");
   console.log(result);
 }
 
