@@ -14,12 +14,21 @@ async function main() {
 
   const activityService = new ActivityService(client);
 
-  setInterval(async () => {
+  async function pollActivities(): Promise<void> {
+  try {
     const activities = await activityService.fetchActivities();
 
     console.log("Activities:");
     console.log(activities);
-  }, 5000);
+  } catch (error) {
+    console.error("Failed to fetch activities:", error);
+  }
+}
+
+void pollActivities();
+setInterval(() => {
+  void pollActivities();
+}, 5000);
 }
 
 main().catch(console.error);
