@@ -3,3 +3,4 @@ dist/
 *.log
 .env
 session.json
+google-service-account.json
