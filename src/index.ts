@@ -1,52 +1,120 @@
 import "dotenv/config";
+
 import { RealClient } from "./core/RealClient";
-import { handleActivity } from "./CommandHandler";
+import { handleActivity } from "./handlers/ActivityHandler";
 
-async function main() {
-  const client = new RealClient();
+const client = new RealClient();
 
-  client.loadSession();
+client.loadSession();
 
-  console.log("==========================");
-  console.log("FrelickBot Started");
-  console.log("==========================");
+const seenActivityIds = new Set<string>();
+let initialized = false;
 
-  const seen = new Set<string>();
-
-  // Ignore existing activities when the bot starts
-  try {
-    const initial = await client.getActivity();
-
-    for (const activity of initial.activities ?? []) {
-      seen.add(activity.id);
-    }
-
-    console.log(`Loaded ${seen.size} existing activities.`);
-  } catch (err) {
-    console.error("Failed to load initial activity:", err);
+function getActivities(response: any): any[] {
+  if (Array.isArray(response)) {
+    return response;
   }
 
-  while (true) {
-    try {
-      console.log("Checking activity...");
+  if (Array.isArray(response?.activities)) {
+    return response.activities;
+  }
 
-      const data = await client.getActivity();
+  if (Array.isArray(response?.results)) {
+    return response.results;
+  }
 
-      console.log(`Activities: ${data.activities?.length ?? 0}`);
+  if (Array.isArray(response?.data)) {
+    return response.data;
+  }
 
-      for (const activity of data.activities ?? []) {
-        if (seen.has(activity.id)) continue;
+  return [];
+}
 
-        seen.add(activity.id);
+function getActivityId(activity: any): string {
+  return String(
+    activity.id ??
+      activity.activityId ??
+      activity.commentId ??
+      activity.additionalInfo?.comment?.id ??
+      ""
+  );
+}
 
-        await handleActivity(client, activity);
+async function checkActivities(): Promise<void> {
+  try {
+    const response = await client.getActivity();
+    const activities = getActivities(response);
+
+    console.log(`Found ${activities.length} activities.`);
+
+    // Remember old activities when the bot first starts.
+    // This prevents it from replying to old mentions.
+    if (!initialized) {
+      for (const activity of activities) {
+        const activityId = getActivityId(activity);
+
+        if (activityId) {
+          seenActivityIds.add(activityId);
+        }
       }
-    } catch (err) {
-      console.error(err);
+
+      initialized = true;
+
+      console.log(
+        "Existing activities loaded. Waiting for new mentions."
+      );
+
+      return;
     }
 
-    await new Promise((r) => setTimeout(r, 2000));
+    // Process oldest new activity first.
+    for (const activity of [...activities].reverse()) {
+      const activityId = getActivityId(activity);
+
+      if (!activityId) {
+        continue;
+      }
+
+      if (seenActivityIds.has(activityId)) {
+        continue;
+      }
+
+      seenActivityIds.add(activityId);
+
+      console.log("New activity received:", {
+        id: activityId,
+        type: activity.type,
+        commentId:
+          activity.commentId ??
+          activity.additionalInfo?.comment?.id,
+      });
+
+      await handleActivity(client, activity);
+    }
+
+    // Prevent the set from growing forever.
+    if (seenActivityIds.size > 500) {
+      const recentIds = activities
+        .map(getActivityId)
+        .filter(Boolean);
+
+      seenActivityIds.clear();
+
+      for (const id of recentIds) {
+        seenActivityIds.add(id);
+      }
+    }
+  } catch (error) {
+    console.error("Activity check failed:", error);
   }
 }
 
-main().catch(console.error);
+console.log("============================");
+console.log("FrelickBot Started");
+console.log("============================");
+
+void checkActivities();
+
+setInterval(() => {
+  void checkActivities();
+}, 15_000);

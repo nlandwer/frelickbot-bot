@@ -4,11 +4,13 @@ import { google } from "googleapis";
 import fs from "fs";
 import path from "path";
 
+const credentialsPath = path.join(
+  process.cwd(),
+  "google-service-account.json"
+);
+
 const credentials = JSON.parse(
-  fs.readFileSync(
-    path.join(process.cwd(), "google-service-account.json"),
-    "utf8"
-  )
+  fs.readFileSync(credentialsPath, "utf8")
 );
 
 const auth = new google.auth.GoogleAuth({
@@ -24,18 +26,22 @@ const sheets = google.sheets({
 });
 
 export async function readSheet(
+  spreadsheetId: string,
   range: string
 ): Promise<string[][]> {
-  const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
-
   if (!spreadsheetId) {
-    throw new Error("GOOGLE_SPREADSHEET_ID is missing");
+    throw new Error(
+      `Spreadsheet ID is missing for range "${range}"`
+    );
   }
 
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range,
-  });
+  const response =
+    await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+    });
 
-  return (response.data.values as string[][]) ?? [];
+  return (
+    response.data.values as string[][] | undefined
+  ) ?? [];
 }
